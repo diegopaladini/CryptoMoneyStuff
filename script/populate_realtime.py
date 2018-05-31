@@ -13,25 +13,24 @@ from datetime import datetime
 from sqlalchemy import create_engine
 
 
-cur_pair = {'stellar':'BTC_STR'}
 
-def populate(cur_pair, instance, end_date, connection):
+def populate_prices(cur_pair, instance, end_date, connection):
     
     for tag, cur in cur_pair.items():
         print('>>> Request for pair', cur)
+        
         sql = ("select max(timestamp) from cryptos.prices where currency_pair='" + cur + "'")
+        result = connection.execute(sql).fetchall()       
+        dum_df = DataFrame(result, columns = ['last_date'])
         
-        result = connection.execute(sql)
-        if len(result.fetchall()) == 0:
+        if dum_df.isnull().bool():
             last_date = datetime(2011,1,1,0,0)
-            raw = instance.returnChartData(cur, period=300, start=datetime.timestamp(last_date), end=datetime.timestamp(end_date))
         else:
-            for row in result:
-                last_date = row[0]
-            raw = instance.returnChartData(cur, period=300, start=datetime.timestamp(last_date)+1, end=end_date)
+            last_date = dum_df.iloc[0]['last_date']
+        del dum_df
         
-        
-        
+        print('   ...last date found on db: %s' %last_date)
+        raw = instance.returnChartData(cur, period=300, start=datetime.timestamp(last_date)+1, end=datetime.timestamp(end_date))
         
         df = pd.DataFrame(raw)
         
@@ -52,13 +51,14 @@ def populate(cur_pair, instance, end_date, connection):
         
         todb.drop_duplicates(inplace = True)
         
-                
+        print('   ...got %d records from poloniex' %len(todb))
+        print('   ...start inserting into db')              
         for row in todb.iterrows():
             dum = DataFrame(row[1])
             try:
                 dum.transpose().to_sql('prices', connection, if_exists='append', schema='cryptos', index=False)
             except:
-                print('### Errore caricamento DB ###')
+                print('   ___ Errore caricamento DB ___')
                 pass #or any other 
             
  
@@ -71,34 +71,38 @@ def populate(cur_pair, instance, end_date, connection):
 
 def main():
 
+    # Define the currencies of interest and their tag
     cur_pair = {'stellar':'BTC_STR', 'ripple':'BTC_XRP', 'bitcoin':'USDT_BTC'}
-
+    
+    # Read credentials for db connection
     credentials_db = pd.read_csv('..\\credentials\\db.cred', sep=';', encoding='UTF8', header=None, index_col=0)
 
     db = credentials_db.loc['db'][1]
     user = credentials_db.loc['user'][1]
     pwd = credentials_db.loc['pwd'][1]
-
-    credentials_polo = pd.read_csv('..\\credentials\\poloniex.cred', sep=';', encoding='UTF8', header=None, index_col=0)
-
-    apikey = credentials_polo.loc['apikey'][1]
-    secret = credentials_polo.loc['secret'][1]
-
-
-
-
+    
+    # Create db engine and connection
     engine = create_engine('postgresql://' + user + ':' + pwd + '@' + db + ':5432/postgres')
     connection = engine.connect()
-    instance = Poloniex(apikey, secret)
+    
 
+    # Read credentials for Poloniex API
+    credentials_polo = pd.read_csv('..\\credentials\\poloniex.cred', sep=';', encoding='UTF8', header=None, index_col=0)
+
+    # Create Poloniex API instance
+    instance = Poloniex(credentials_polo.loc['apikey'][1], credentials_polo.loc['secret'][1])
+
+    
     end_date = datetime(2025,1,20,15,15)
 
+    
+    # Populate prices table
+    populate_prices(cur_pair, instance, end_date, connection)
 
-    populate(cur_pair, instance, end_date, connection)
-
+    # Close connection to db
     connection.close()
     engine.dispose()
-
+    
     return
 
 
