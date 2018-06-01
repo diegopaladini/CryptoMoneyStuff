@@ -1,6 +1,6 @@
 # CryptoMoneyStuff
 
-## Folders:
+## Folders
 * script: contains project scripts (Python 3.5)
 	* algo: scripts for trading algorithms definition
 	* data: scripts for data management (download from Polniex and insert into db).
@@ -12,18 +12,17 @@
 
 
 # To Do
-* Download data about Volumes: return24hVolume API. To define time interval of data update and for which currencies.
-## Data:
-* download data about Order Book: returnOrderBook API. To define time interval of data update and for which currencies.
-* download data about Volumes: return24hVolume API. To define time interval of data update and for which currencies.
+## Data
+* download data about Order Book: returnOrderBook API. Define time interval of data update and for which currencies.
+* download data about Volumes: return24hVolume API. Define time interval of data update and for which currencies.
 * populate table about fees (handmade)
 
-## Forecasting:
+## Forecasting
 * define what to forecast (target): binary classification of up/sell, price regression
 * define time horizon of the forecast
-* define features used to forecast/ which currencies
+* define features used to forecast/which currencies
 
-## Trading:
+## Trading
 * define trading algo
 * define on which currencies to focus
 * arbitrage opportunity between different trading desks

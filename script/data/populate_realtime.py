@@ -9,7 +9,7 @@ Created on Sat Jan 20 15:48:59 2018
 from poloniex import Poloniex
 import pandas as pd
 from pandas import DataFrame
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine
 
 
@@ -67,7 +67,70 @@ def populate_prices(cur_pair, instance, end_date, connection):
 
 
 
+def populate_orderbook(cur_pair, instance, end_date, connection):
+    
+ 
 
+
+    
+def populate_volumes(instance, connection):
+    # I volumi sulle ultime 24 ore cambiano potenzialmente ad ogni chiamata dell'API.
+    # E' consistente con i prezzi avere i volumi nello stesso istante di aggiornamento dei prezzi --> ogni 5 minuti
+    
+    
+    print('>>> Populating Volume table...')
+    
+    # Get data from poloniex API
+    data = instance.return24hVolume()
+    
+    dt = datetime.now()
+    dt = dt - timedelta(minutes=dt.minute % 5, seconds=dt.second, microseconds=dt.microsecond)
+    
+    lt = []
+    volumes = DataFrame()
+    for key in data.keys():
+        if '_' in key:
+            cur_1 = key.split('_')[0]
+            cur_2 = key.split('_')[1]
+            lt.append([
+                    dt
+                    ,'poloniex'
+                    ,key
+                    ,cur_1
+                    ,data[key][cur_1]
+                    ,cur_2
+                    ,data[key][cur_2]
+                    ])
+        else:
+            cur_1 = key
+            cur_2 = key
+            lt.append([
+                    dt
+                    ,'poloniex'
+                    ,key
+                    ,cur_1
+                    ,data[key]
+                    ,cur_2
+                    ,data[key]
+                    ])
+    
+    volumes = DataFrame(lt, columns = ['timestamp', 'exchange', 'currency_pair', 'currency_tag_1', 'volume_currency_1', 'currency_tag_2', \
+                                       'volume_currency_2'])
+    
+    volumes.drop_duplicates(inplace = True)
+        
+    print('   ...got %d records from poloniex' %len(volumes))
+    print('   ...start inserting into db')              
+    for row in volumes.iterrows():
+        dum = DataFrame(row[1])
+        try:
+            dum.transpose().to_sql('volumes', connection, if_exists='append', schema='cryptos', index=False)
+        except:
+            print('   ___ Errore caricamento DB ___')
+            pass #or any other 
+
+    
+    
 
 def main():
 
@@ -98,7 +161,9 @@ def main():
     
     # Populate prices table
     populate_prices(cur_pair, instance, end_date, connection)
-
+    
+    populate_volumes(instance, connection)
+    
     # Close connection to db
     connection.close()
     engine.dispose()
